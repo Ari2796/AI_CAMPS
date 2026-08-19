@@ -76,3 +76,6 @@ desktop.ini
 # 6. Temporary verification and scratch files
 rag_verification_results.txt
 backend/rag_verification_results.txt
+
+Map_fils/
+

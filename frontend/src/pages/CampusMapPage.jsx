@@ -618,17 +618,17 @@ const CampusMapPage = () => {
                 }`}
               >
                 <span 
-                  className={`px-2.5 py-1 rounded-md text-[10px] sm:text-[11px] font-medium transition-all shadow-md whitespace-nowrap ${
+                  className={`inline-block px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-semibold transition-all shadow-md text-center break-words leading-[1.15] max-w-[65px] sm:max-w-[80px] ${
                     isFrom
-                      ? 'bg-emerald-500 text-slate-950 font-bold ring-2 ring-emerald-300 shadow-emerald-500/50'
+                      ? 'bg-emerald-500 text-slate-950 font-bold ring-2 ring-emerald-300 shadow-emerald-500/50 max-w-none'
                       : isTo
-                      ? 'bg-rose-500 text-white font-bold ring-2 ring-rose-300 shadow-rose-500/50'
+                      ? 'bg-rose-500 text-white font-bold ring-2 ring-rose-300 shadow-rose-500/50 max-w-none'
                       : isSelected
-                      ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-emerald-500/50'
+                      ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-emerald-500/50 max-w-none'
                       : 'text-white'
                   }`}
                   style={!isSelected && !isFrom && !isTo ? {
-                    backgroundColor: 'rgba(15, 23, 42, 0.85)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
                     border: '1px solid rgba(148, 163, 184, 0.35)',
                     textShadow: '0 1px 2px #000'
                   } : {}}

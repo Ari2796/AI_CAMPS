@@ -613,24 +613,22 @@ const CampusMapPage = () => {
                     setToPlaceId(tag.id);
                   }
                 }}
-                className={`absolute z-20 cursor-pointer transition-all duration-200 ${
-                  isSelected || isFrom || isTo ? 'scale-125 z-40' : 'hover:scale-110'
+                className={`absolute z-20 cursor-pointer transition-all duration-150 ${
+                  isSelected || isFrom || isTo ? 'scale-125 z-40' : 'hover:scale-110 hover:z-30'
                 }`}
               >
                 <span 
-                  className={`inline-block px-1.5 py-0.5 rounded-md text-[8.5px] sm:text-[9.5px] font-semibold transition-all shadow-md text-center break-words leading-[1.15] max-w-[65px] sm:max-w-[80px] ${
+                  className={`inline-block text-center break-words leading-[1.1] ${
                     isFrom
-                      ? 'bg-emerald-500 text-slate-950 font-bold ring-2 ring-emerald-300 shadow-emerald-500/50 max-w-none'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 text-[9px] font-bold ring-2 ring-emerald-300 shadow-lg shadow-emerald-500/50'
                       : isTo
-                      ? 'bg-rose-500 text-white font-bold ring-2 ring-rose-300 shadow-rose-500/50 max-w-none'
+                      ? 'px-2 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-bold ring-2 ring-rose-300 shadow-lg shadow-rose-500/50'
                       : isSelected
-                      ? 'bg-emerald-600 text-white font-bold ring-2 ring-emerald-400 shadow-emerald-500/50 max-w-none'
-                      : 'text-white'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/50'
+                      : 'text-[7.5px] sm:text-[8px] font-semibold text-slate-200 hover:text-white max-w-[55px] sm:max-w-[70px]'
                   }`}
                   style={!isSelected && !isFrom && !isTo ? {
-                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
-                    border: '1px solid rgba(148, 163, 184, 0.35)',
-                    textShadow: '0 1px 2px #000'
+                    textShadow: '0 0 4px #000, 0 1px 2px #000, 0 0 1px #000, 1px 1px 2px #000'
                   } : {}}
                 >
                   {tag.name}

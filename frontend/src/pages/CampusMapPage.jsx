@@ -143,16 +143,16 @@ const CampusMapPage = () => {
     const tagL4 = DETAILED_TAGS.find(t => t.id === id);
     if (tagL4) {
       return {
-        x: Math.round(parseInt(tagL4.left, 10) / 1.5),
-        y: Math.round(parseInt(tagL4.top, 10) / 1.5)
+        x: Math.round(parseInt(tagL4.left, 10) / 1.5) + 22,
+        y: Math.round(parseInt(tagL4.top, 10) / 1.5) + 12
       };
     }
 
     const tagL3 = OVERVIEW_TAGS.find(t => t.id === id);
     if (tagL3) {
       return {
-        x: parseInt(tagL3.left, 10),
-        y: parseInt(tagL3.top, 10)
+        x: parseInt(tagL3.left, 10) + 22,
+        y: parseInt(tagL3.top, 10) + 12
       };
     }
 
@@ -573,12 +573,15 @@ const CampusMapPage = () => {
             </div>
           )}
 
-          {/* Unified Clean Campus Tags Layer (Zoom-Responsive without green dots) */}
+          {/* Unified Clean Campus Tags Layer (Zoom-Responsive with Southeast Calibration Offset) */}
           {(isZoomedIn ? DETAILED_TAGS : OVERVIEW_TAGS).map((tag, idx) => {
             const rawLeft = parseInt(tag.left, 10);
             const rawTop = parseInt(tag.top, 10);
-            const normalizedX = isZoomedIn ? Math.round(rawLeft / 1.5) : rawLeft;
-            const normalizedY = isZoomedIn ? Math.round(rawTop / 1.5) : rawTop;
+            // Southeast movement (+East/Right: 22px, +South/Down: 12px)
+            const seOffsetX = 22;
+            const seOffsetY = 12;
+            const normalizedX = (isZoomedIn ? Math.round(rawLeft / 1.5) : rawLeft) + seOffsetX;
+            const normalizedY = (isZoomedIn ? Math.round(rawTop / 1.5) : rawTop) + seOffsetY;
 
             const isSelected = selectedPlace?.id === tag.id;
             const isFrom = fromPlaceId === tag.id;
@@ -618,21 +621,30 @@ const CampusMapPage = () => {
                 }`}
               >
                 <span 
-                  className={`inline-block text-center whitespace-normal break-normal leading-[1.05] ${
+                  className={`inline-block text-center whitespace-normal break-normal ${
                     isFrom
-                      ? 'px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 text-[8.5px] font-bold ring-2 ring-emerald-300 shadow-lg shadow-emerald-500/50'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 text-[9px] font-bold ring-1.5 ring-emerald-300 shadow-lg shadow-emerald-500/50'
                       : isTo
-                      ? 'px-2 py-0.5 rounded-md bg-rose-500 text-white text-[8.5px] font-bold ring-2 ring-rose-300 shadow-lg shadow-rose-500/50'
+                      ? 'px-2 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-bold ring-1.5 ring-rose-300 shadow-lg shadow-rose-500/50'
                       : isSelected
-                      ? 'px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8.5px] font-bold ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/50'
-                      : 'text-[6px] sm:text-[6.5px] font-medium text-slate-200 hover:text-white max-w-[60px] sm:max-w-[72px]'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold ring-1.5 ring-emerald-400 shadow-lg shadow-emerald-500/50'
+                      : 'px-1.5 py-0.5 rounded-[3px] font-medium text-slate-100 hover:text-white max-w-[80px]'
                   }`}
                   style={!isSelected && !isFrom && !isTo ? {
-                    textShadow: '0 0 3px #000, 0 1px 2px #000, 0 0 1px #000, 1px 1px 1px #000',
+                    fontSize: '9px',
+                    transform: 'scale(0.6)',
+                    transformOrigin: 'center center',
+                    backgroundColor: 'rgba(15, 23, 42, 0.20)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    backdropFilter: 'blur(1px)',
+                    textShadow: '0 0 2px #000, 0 1px 2px #000',
+                    lineHeight: '1.1',
                     wordBreak: 'normal',
                     overflowWrap: 'normal',
                     whiteSpace: 'normal'
-                  } : {}}
+                  } : {
+                    fontSize: '9px'
+                  }}
                 >
                   {tag.name}
                 </span>

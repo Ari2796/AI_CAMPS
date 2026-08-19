@@ -618,17 +618,20 @@ const CampusMapPage = () => {
                 }`}
               >
                 <span 
-                  className={`inline-block text-center break-words leading-[1.1] ${
+                  className={`inline-block text-center whitespace-normal break-normal leading-[1.05] ${
                     isFrom
-                      ? 'px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 text-[9px] font-bold ring-2 ring-emerald-300 shadow-lg shadow-emerald-500/50'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-500 text-slate-950 text-[8.5px] font-bold ring-2 ring-emerald-300 shadow-lg shadow-emerald-500/50'
                       : isTo
-                      ? 'px-2 py-0.5 rounded-md bg-rose-500 text-white text-[9px] font-bold ring-2 ring-rose-300 shadow-lg shadow-rose-500/50'
+                      ? 'px-2 py-0.5 rounded-md bg-rose-500 text-white text-[8.5px] font-bold ring-2 ring-rose-300 shadow-lg shadow-rose-500/50'
                       : isSelected
-                      ? 'px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[9px] font-bold ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/50'
-                      : 'text-[7.5px] sm:text-[8px] font-semibold text-slate-200 hover:text-white max-w-[55px] sm:max-w-[70px]'
+                      ? 'px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8.5px] font-bold ring-2 ring-emerald-400 shadow-lg shadow-emerald-500/50'
+                      : 'text-[6px] sm:text-[6.5px] font-medium text-slate-200 hover:text-white max-w-[60px] sm:max-w-[72px]'
                   }`}
                   style={!isSelected && !isFrom && !isTo ? {
-                    textShadow: '0 0 4px #000, 0 1px 2px #000, 0 0 1px #000, 1px 1px 2px #000'
+                    textShadow: '0 0 3px #000, 0 1px 2px #000, 0 0 1px #000, 1px 1px 1px #000',
+                    wordBreak: 'normal',
+                    overflowWrap: 'normal',
+                    whiteSpace: 'normal'
                   } : {}}
                 >
                   {tag.name}

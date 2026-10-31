@@ -34,3 +34,4 @@ if os.path.exists(db_path):
     print("Database schema successfully upgraded with user_type, email, and resolved_at fields.")
 else:
     print("Database file does not exist yet. Will be created with new schema on startup.")
+

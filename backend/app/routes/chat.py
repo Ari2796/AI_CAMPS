@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Header, Request, BackgroundTasks
+from fastapi import APIRouter, Depends, Header, Request, BackgroundTasks, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.database import get_db, ChatHistory, Issue
@@ -9,6 +9,7 @@ from app.services.complaint_service import detect_complaint
 from app.services.language_service import detect_language
 from app.services.email_service import send_complaint_email
 import json
+from typing import Optional
 
 router = APIRouter()
 
@@ -26,85 +27,122 @@ async def chat(
         user = await get_current_user(auth_header, db)
         
     user_id = user.id if user and hasattr(user, 'id') else None
-    user_type = "student"
-    if user and (getattr(user, 'role', '') == "guest" or (isinstance(user, dict) and user.get('role') == 'guest')):
+    user_type = "guest"
+    is_verified_user = False
+
+    # Extract user role strictly
+    if user:
+        role = getattr(user, 'role', '') if hasattr(user, 'role') else (user.get('role') if isinstance(user, dict) else '')
+        if role in ['student', 'faculty', 'admin']:
+            user_type = role
+            is_verified_user = True
+        else:
+            user_type = "guest"
+            is_verified_user = False
+
+    # If frontend explicitly specifies guest, enforce guest status
+    if req.user_type == "guest":
         user_type = "guest"
-    elif not user:
-        user_type = req.user_type or "guest"
-        
-    user_name = req.user_name or (getattr(user, 'name', None) if hasattr(user, 'name') else (user.get('name') if isinstance(user, dict) else ("Student" if user_type == "student" else "Guest Visitor")))
-    
+        is_verified_user = False
+
+    user_name = req.user_name or (getattr(user, 'name', None) if hasattr(user, 'name') else (user.get('name') if isinstance(user, dict) else ("Student" if is_verified_user else "Guest Visitor")))
+
     user_email = None
     if user and hasattr(user, 'email') and user.email:
         user_email = user.email
     elif user and hasattr(user, 'roll_number') and user.roll_number:
         user_email = f"{user.roll_number.lower()}@bitsathy.ac.in"
-    
+
+
     # 1. Detect language
     lang = req.language if req.language else detect_language(req.message)
     
     # 2. Check if it's a complaint or complaint intent
-    complaint_result = await detect_complaint(req.message)
+    context_text = None
+    if req.history and len(req.history) > 0:
+        recent = []
+        for h in req.history[-3:]:
+            q = getattr(h, 'query', '') or (h.get('query') if isinstance(h, dict) else '')
+            r = getattr(h, 'reply', '') or (h.get('reply') if isinstance(h, dict) else '')
+            if q:
+                recent.append(f"User: {q}\nAssistant: {r}")
+        if recent:
+            context_text = "\n".join(recent)
+
+    complaint_result = await detect_complaint(req.message, context=context_text)
     
     response_text = ""
     sources = []
+    matched_route = None
     
     if complaint_result.get("is_complaint"):
-        cat = complaint_result.get("category", "General")
-        loc = complaint_result.get("location", "Unknown")
-        desc = complaint_result.get("description", req.message)
-
-        # Auto-create issue
-        issue = Issue(
-            user_id=user_id if user_id and str(user_id) != "0" else None,
-            user_name=user_name,
-            user_type=user_type,
-            user_email=user_email,
-            category=cat,
-            location=loc,
-            description=desc,
-            priority="medium"
-        )
-        db.add(issue)
-        await db.commit()
-        await db.refresh(issue)
-
-        # Send background email notification
-        background_tasks.add_task(send_complaint_email, {
-            "id": issue.id,
-            "user_name": user_name,
-            "user_email": user_email,
-            "category": cat,
-            "location": loc,
-            "description": desc,
-            "priority": "medium"
-        })
-        
-        if lang == 'ta':
-            response_text = f"📋 உங்கள் புகார் பதிவு செய்யப்பட்டுள்ளது (Report #{issue.id}, துறை: {cat}, இடம்: {loc}). கல்லூரி நிர்வாகம் விரைவில் சரிசெய்யும்."
-        elif lang == 'hi':
-            response_text = f"📋 आपकी शिकायत सफलतापूर्वक दर्ज कर ली गई है (Report #{issue.id}, विभाग: {cat}, स्थान: {loc})। कैंपस रखरखाव टीम को सूचित कर दिया गया है।"
-        elif lang == 'ml':
-            response_text = f"📋 നിങ്ങളുടെ പരാതി വിജയകരമായി രജിസ്റ്റർ ചെയ്തു (Report #{issue.id}, വിഭാഗം: {cat}, സ്ഥലം: {loc})। കാമ്പസ് അഡ്മിനിസ്ട്രേറ്റീവ് ടീമിനെ അറിയിച്ചിട്ടുണ്ട്."
+        if not is_verified_user:
+            response_text = "I noticed you want to report a campus maintenance issue. Grievance filing is restricted to verified BIT students and faculty members. Please sign in with your official @bitsathy.ac.in credentials to submit an official maintenance ticket."
         else:
-            response_text = f"📋 Your campus maintenance issue has been registered (Ticket #{issue.id} - {cat} at {loc}). The estate and maintenance staff have been notified."
+            cat = complaint_result.get("category", "General")
+            loc = complaint_result.get("location", "Unknown")
+            desc = complaint_result.get("description", req.message)
+
+            uid = getattr(user, 'id', None) if hasattr(user, 'id') else (user.get('id') if isinstance(user, dict) else None)
+            try:
+                user_id_val = int(uid) if uid and str(uid) != "0" else None
+            except Exception:
+                user_id_val = None
+
+            # Auto-create issue
+            issue = Issue(
+                user_id=user_id_val,
+                user_name=user_name or "Student",
+                user_type=user_type,
+                user_email=user_email,
+                category=cat,
+                location=loc,
+                description=desc,
+                priority="medium"
+            )
+            db.add(issue)
+            await db.commit()
+            await db.refresh(issue)
+
+            # Send background email notification safely
+            try:
+                background_tasks.add_task(send_complaint_email, {
+                    "id": issue.id,
+                    "user_name": user_name,
+                    "user_email": user_email,
+                    "category": cat,
+                    "location": loc,
+                    "description": desc,
+                    "priority": "medium"
+                })
+            except Exception:
+                pass
+            
+            response_text = f"Your campus maintenance request has been submitted to Helpdesk! (Ticket #{issue.id} — {cat} at {loc}). The estate and maintenance staff have been notified, and you can view it on the Helpdesk page."
             
     elif complaint_result.get("is_intent"):
-        if lang == 'ta':
-            response_text = "நிச்சயமாக! உங்கள் புகார் அல்லது கருத்துக்களை பதிவு செய்ய உதவுகிறேன். என்ன பிரச்சனை மற்றும் அது எங்கு உள்ளது (எ.கா. விடுதி அறை எண், ஆய்வகம் அல்லது உணவுக்கூடம்) என்று சுருக்கமாக கூறுங்கள், அல்லது மேலே உள்ள 'Report Issue' பக்கத்தை பயன்படுத்தலாம்."
-        elif lang == 'hi':
-            response_text = "निश्चित रूप से! मैं आपकी शिकायत या प्रतिक्रिया दर्ज करने में मदद कर सकता हूँ। कृपया समस्या और उसका स्थान (जैसे हॉस्टल कमरा नंबर, लैब या मेस) बताएं।"
-        elif lang == 'ml':
-            response_text = "തീർച്ചയായും! നിങ്ങളുടെ പരാതിയോ ഫീഡ്‌ബാക്കോ രജിസ്റ്റർ ചെയ്യാൻ ഞാൻ സഹായിക്കാം. എന്താണ് പ്രശ്നം എന്നും അത് എവിടെയാണെന്നും (ഉദാഹരണത്തിന് ഹോസ്റ്റൽ റൂം നമ്പർ, ലാബ് അല്ലെങ്കിൽ മെസ്സ്) പറയുക."
+        if not is_verified_user:
+            response_text = "I can help you with campus navigation and general inquiries! Note that submitting official maintenance issues is restricted to registered BIT students and faculty members."
         else:
-            response_text = "I'd be glad to help you log your campus issue or feedback! 📝 Please tell me:\n\n1. **What is the problem or feedback?**\n2. **Where is it located?** *(e.g. Emerald Hostel 304, CSE Lab 2, Central Library, or Mess)*\n\nOnce you describe it, I will automatically file a ticket for the campus maintenance team, or you can use the **Report Issue** page."
+            response_text = "I'd be glad to help you log your campus issue or feedback! Please tell me:\n\n1. **What is the problem or feedback?**\n2. **Where is it located?** *(e.g. Emerald Hostel 304, CSE Lab 2, Central Library, or Mess)*\n\nOnce you describe it, I will automatically file a ticket for the campus maintenance team, or you can use the **Report Issue** page."
     else:
         # RAG Query with Conversational Context
         if req.history and len(req.history) > 0:
-            history_text = "\n".join([
-                f"{'User' if not h.get('isAI') else 'AI'}: {h.get('text', '')}"
-                for h in req.history[-6:]
-            ])
+            formatted_turns = []
+            for h in req.history[-8:]:
+                if isinstance(h, dict):
+                    if 'user' in h or 'ai' in h:
+                        if h.get('user'):
+                            formatted_turns.append(f"User: {h.get('user')}")
+                        if h.get('ai'):
+                            formatted_turns.append(f"AI: {h.get('ai')}")
+                    elif 'role' in h:
+                        sender = 'User' if h.get('role') in ['user', 'human'] else 'AI'
+                        formatted_turns.append(f"{sender}: {h.get('content', '')}")
+                    else:
+                        sender = 'AI' if h.get('isAI') else 'User'
+                        formatted_turns.append(f"{sender}: {h.get('text', '')}")
+            history_text = "\n".join(formatted_turns)
         else:
             # Fallback to database chat history
             hist_result = await db.execute(
@@ -116,7 +154,8 @@ async def chat(
             history_records = hist_result.scalars().all()
             history_text = "\n".join([f"User: {h.message}\nAI: {h.response}" for h in reversed(history_records)])
         
-        response_text, sources = await query(req.message, history_text, lang)
+        # Unpack all 3 return values from query() with verification status
+        response_text, sources, matched_route = await query(req.message, history_text, lang, is_verified_user=is_verified_user)
         
     # Store chat history
     chat_log = ChatHistory(
@@ -136,5 +175,47 @@ async def chat(
         response=response_text,
         sources=sources,
         language=lang,
-        is_complaint=complaint_result.get("is_complaint", False)
+        is_complaint=complaint_result.get("is_complaint", False),
+        route=matched_route
     )
+
+
+@router.get("/history")
+async def get_chat_history(
+    request: Request,
+    session_id: Optional[str] = None,
+    limit: int = Query(default=50, le=200),
+    db: AsyncSession = Depends(get_db)
+):
+    """Get chat history for the current user or session."""
+    auth_header = request.headers.get("Authorization")
+    user = None
+    if auth_header:
+        user = await get_current_user(auth_header, db)
+    
+    query_stmt = select(ChatHistory)
+    
+    if user and hasattr(user, 'id') and user.id:
+        # Authenticated user: get all their chats
+        query_stmt = query_stmt.where(ChatHistory.user_id == user.id)
+    elif session_id:
+        # Guest: get chats by session_id
+        query_stmt = query_stmt.where(ChatHistory.session_id == session_id)
+    else:
+        return []
+    
+    query_stmt = query_stmt.order_by(ChatHistory.created_at.desc()).limit(limit)
+    result = await db.execute(query_stmt)
+    records = result.scalars().all()
+    
+    return [
+        {
+            "id": r.id,
+            "message": r.message,
+            "response": r.response,
+            "language": r.language,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+            "session_id": r.session_id
+        }
+        for r in reversed(records)
+    ]

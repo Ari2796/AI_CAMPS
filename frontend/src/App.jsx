@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import Navbar from './components/Navbar';
+import { SidebarProvider } from './context/SidebarContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 // Pages
@@ -15,10 +15,10 @@ import CampusMapPage from './pages/CampusMapPage';
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 transition-colors duration-200">
-          <Navbar />
-          <main className="flex-1 flex flex-col">
+      <SidebarProvider>
+        <Router>
+          <div className="min-h-screen flex flex-col bg-slate-50 dark:bg-[#09090b] text-slate-900 dark:text-zinc-100 transition-colors duration-200">
+            <main className="flex-1 flex flex-col">
             <Routes>
               {/* Default Redirect to Chat if logged in, or Login */}
               <Route path="/" element={<Navigate to="/chat" replace />} />
@@ -61,6 +61,7 @@ function App() {
           </main>
         </div>
       </Router>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

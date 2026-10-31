@@ -17,16 +17,24 @@ async def create_issue(
     user = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ):
+    # Enforce verification check: Only students/faculty/admin allowed to apply issues
+    role = getattr(user, 'role', '') if hasattr(user, 'role') else (user.get('role') if isinstance(user, dict) else None)
+    if not user or role not in ['student', 'faculty', 'admin']:
+        raise HTTPException(
+            status_code=403,
+            detail="Issue submission is restricted to verified BIT students and faculty members. Please sign in with your official BIT credentials."
+        )
+
+    # Determine user id
     user_id = getattr(user, 'id', None) if hasattr(user, 'id') else (user.get('id') if isinstance(user, dict) else None)
-    
+    try:
+        user_id_int = int(user_id) if user_id and str(user_id) != "0" else None
+    except Exception:
+        user_id_int = None
+
     # Determine user type
-    user_type = issue_data.user_type or "student"
-    if user and (getattr(user, 'role', '') == "guest" or (isinstance(user, dict) and user.get('role') == 'guest')):
-        user_type = "guest"
-    elif user and (getattr(user, 'role', '') == "student" or (isinstance(user, dict) and user.get('role') == 'student')):
-        user_type = "student"
-        
-    user_name = issue_data.user_name or (getattr(user, 'name', None) if hasattr(user, 'name') else (user.get('name') if isinstance(user, dict) else ("Student" if user_type == "student" else "Guest Visitor")))
+    user_type = "faculty" if role == "faculty" else "student"
+    user_name = issue_data.user_name or (getattr(user, 'name', None) if hasattr(user, 'name') else (user.get('name') if isinstance(user, dict) else "Student"))
     
     # Determine email
     user_email = issue_data.user_email
@@ -34,15 +42,17 @@ async def create_issue(
         user_email = user.email
     elif not user_email and user and hasattr(user, 'roll_number') and user.roll_number:
         user_email = f"{user.roll_number.lower()}@bitsathy.ac.in"
+    elif not user_email and isinstance(user, dict) and user.get('email'):
+        user_email = user.get('email')
     
     new_issue = Issue(
-        user_id=user_id if user_id and str(user_id) != "0" else None,
-        user_name=user_name or "Guest Visitor",
+        user_id=user_id_int,
+        user_name=user_name or "Student",
         user_type=user_type,
         user_email=user_email,
         user_phone=issue_data.user_phone,
-        category=issue_data.category,
-        location=issue_data.location,
+        category=issue_data.category or "General",
+        location=issue_data.location or "BIT Campus",
         description=issue_data.description,
         priority=issue_data.priority or "medium"
     )
@@ -50,14 +60,18 @@ async def create_issue(
     await db.commit()
     await db.refresh(new_issue)
 
-    background_tasks.add_task(send_complaint_email, {
-        "user_name": new_issue.user_name,
-        "user_email": new_issue.user_email,
-        "category": new_issue.category,
-        "location": new_issue.location,
-        "description": new_issue.description,
-        "priority": new_issue.priority
-    })
+    try:
+        background_tasks.add_task(send_complaint_email, {
+            "id": new_issue.id,
+            "user_name": new_issue.user_name,
+            "user_email": new_issue.user_email,
+            "category": new_issue.category,
+            "location": new_issue.location,
+            "description": new_issue.description,
+            "priority": new_issue.priority
+        })
+    except Exception as e:
+        pass
 
     return new_issue
 

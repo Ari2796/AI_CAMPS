@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from app.services.rag_service import rebuild_index, query
 import asyncio
 
-print("=== REBUILDING FAISS INDEX FROM 6 OFFICIAL DOCUMENTS ===")
+print("=== REBUILDING FAISS INDEX FROM ALL OFFICIAL DOCUMENTS ===")
 total_chunks = rebuild_index()
 print(f"DONE! Successfully indexed {total_chunks} chunks.")
 
@@ -18,12 +18,13 @@ async def test_retrieval():
         ("கல்லூரியின் சேர்க்கை கட்டணம் மற்றும் உதவித்தொகை என்ன?", "ta"),
         ("Who is the Head of Computer Science and Engineering Department?", "en"),
         ("What are the special labs for AI and Data Science?", "en"),
+        ("What clubs are available in BIT campus?", "en"),
     ]
     
     output_lines = ["=== RUNNING VERIFICATION QUERIES ==="]
     for q, lang in test_queries:
         output_lines.append(f"\n--- Query ({lang}): {q} ---")
-        answer, sources = await query(question=q, language=lang)
+        answer, sources, route = await query(question=q, language=lang, is_verified_user=True)
         output_lines.append(f"Answer snippet: {answer}")
         output_lines.append(f"Retrieved {len(sources)} sources:")
         for s in sources[:3]:

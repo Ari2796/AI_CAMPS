@@ -73,9 +73,20 @@ desktop.ini
 *.swp
 *.swo
 
-# 6. Temporary verification and scratch files
+# 6. Sensitive Student & Faculty Data / Directory Locks
+backend/data/documents/BIT_Staffs_Contacts.pdf
+backend/data/documents/BIT_StudentList.pdf
+backend/data/faculty_cache.json
+backend/data/students_cache.json
+backend/data/vectorstore/
+*.docx
+s7_Final_Report_Camps.*
+
+# 7. Temporary verification and scratch files
 rag_verification_results.txt
 backend/rag_verification_results.txt
+START.bat
+DEPLOYMENT.md
 
 Map_fils/
 

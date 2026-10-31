@@ -4,8 +4,10 @@ from contextlib import asynccontextmanager
 import logging
 
 from app.models.database import init_db
-from app.routes import auth, chat, issues, admin, voice
+from app.routes import auth, chat, issues, admin, voice, faculty
 from app.services.rag_service import initialize_vectorstore
+from app.services.student_service import init_student_index
+from app.services.faculty_service import init_faculty_index
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -15,6 +17,8 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("Starting up Multilingual AI Campus Assistant Backend...")
     await init_db()
+    init_student_index()
+    init_faculty_index()
     initialize_vectorstore()
     yield
     # Shutdown
@@ -42,6 +46,7 @@ app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
 app.include_router(issues.router, prefix="/api/issues", tags=["issues"])
 app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 app.include_router(voice.router, prefix="/api/voice", tags=["voice"])
+app.include_router(faculty.router, prefix="/api/faculty", tags=["faculty"])
 
 @app.get("/api/health", tags=["health"])
 async def health_check():

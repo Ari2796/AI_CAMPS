@@ -53,14 +53,31 @@ class STTRequest(BaseModel):
     language: Optional[str] = None
 
 def clean_text_for_speech(text: str) -> str:
-    """Strip markdown symbols, URLs, and code blocks for smooth speech output."""
-    # Remove markdown links [text](url) -> text
+    """Strip brackets, markdown symbols, URLs, and emojis so speech only reads words and numbers."""
+    if not text:
+        return ""
+    # Remove markdown links [text](url) -> keep text only
     text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
     # Remove URLs
-    text = re.sub(r'http[s]?://\S+', '', text)
-    # Remove headers, bullets, bold/italic markers
-    text = re.sub(r'[*#_~`>]', ' ', text)
-    # Replace multiple spaces / newlines with single spaces
+    text = re.sub(r'https?://\S+', '', text)
+    # Remove code blocks
+    text = re.sub(r'```[\s\S]*?```', '', text)
+    text = re.sub(r'`[^`]*`', '', text)
+    # Remove citation brackets like [1], [2]
+    text = re.sub(r'\[\s*\d+(?:\s*,\s*\d+)*\s*\]', ' ', text)
+    # Remove all bracket characters: (), [], {}, <>, 【】, 〔〕, （）, ［］, ｛｝, «», ‹›
+    text = re.sub(r'[()\[\]{}<>【】〔〕（）［］｛｝«»‹›]', ' ', text)
+    # Remove symbols and markdown: *, _, #, ~, `, |, ^, +, =, \, /, @, $, %, &, bullets, dashes, quotes
+    text = re.sub(r'[*_#~`|^+=\\/@$%&•–—"“"\'`]', ' ', text)
+    # Remove hyphens/dashes
+    text = re.sub(r'[-]', ' ', text)
+    # Replace colons not in time with pause comma
+    text = re.sub(r'(?<!\d):|:(?!\d)', ', ', text)
+    # Remove emojis and high unicode symbols
+    text = re.sub(r'[\U00010000-\U0010ffff]', '', text)
+    # Clean up whitespace and punctuation spacing
+    text = re.sub(r'\s+([.,?!])', r'\1', text)
+    text = re.sub(r'[.,]{2,}', '.', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
@@ -178,7 +195,7 @@ async def text_to_speech(req: TTSRequest):
         detected_lang = short_lang
 
     try:
-        communicate = edge_tts.Communicate(clean_text, selected_voice)
+        communicate = edge_tts.Communicate(clean_text, selected_voice, rate="+25%")
         audio_stream = io.BytesIO()
         
         async for chunk in communicate.stream():

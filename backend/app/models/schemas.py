@@ -3,10 +3,17 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 class LoginRequest(BaseModel):
-    name: str
     roll_number: str
-    department: str
+    name: Optional[str] = ""
+    department: Optional[str] = "Engineering & Technology"
     email: Optional[str] = None
+
+class SendOtpRequest(BaseModel):
+    email: str
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    otp: str
 
 class GoogleLoginRequest(BaseModel):
     email: str
@@ -39,6 +46,7 @@ class ChatResponse(BaseModel):
     sources: Optional[List[Dict[str, Any]]] = None
     language: str
     is_complaint: bool = False
+    route: Optional[Dict[str, Any]] = None
 
 class IssueCreate(BaseModel):
     category: str

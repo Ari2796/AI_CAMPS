@@ -1,18 +1,36 @@
-from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
+from fastapi import APIRouter, Depends, UploadFile, File, HTTPException, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import func
 import os
 import shutil
-from typing import List
+from typing import List, Optional
 
 from app.models.database import get_db, User, ChatHistory, Issue, Document, SystemSetting
-from app.models.schemas import AnalyticsResponse, DocumentResponse, SettingsUpdate, SettingsResponse
+from app.models.schemas import AnalyticsResponse, DocumentResponse, SettingsUpdate, SettingsResponse, IssueResponse
 from app.routes.auth import require_admin
 from app.services.rag_service import load_and_index_pdf, rebuild_index, DOCUMENTS_DIR
-from typing import Optional
+from app.services.faculty_service import (
+    get_all_contacts_raw, add_contact, update_contact,
+    delete_contact, init_faculty_index
+)
 
 router = APIRouter(dependencies=[Depends(require_admin)])
+
+@router.get("/issues", response_model=List[IssueResponse])
+async def get_all_issues(
+    user_type: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db)
+):
+    """Admin endpoint to fetch all complaints/issues reported across all users."""
+    query_stmt = select(Issue)
+    if user_type:
+        query_stmt = query_stmt.where(Issue.user_type == user_type)
+    if status:
+        query_stmt = query_stmt.where(Issue.status == status)
+    result = await db.execute(query_stmt.order_by(Issue.created_at.desc()))
+    return result.scalars().all()
 
 @router.get("/analytics", response_model=AnalyticsResponse)
 async def get_analytics(db: AsyncSession = Depends(get_db)):
@@ -137,3 +155,68 @@ async def delete_document(doc_id: int, db: AsyncSession = Depends(get_db)):
 async def reindex_documents():
     count = rebuild_index()
     return {"message": "FAISS index rebuilt successfully", "total_chunks": count}
+
+
+# ─────────────────────────────────────────────────────────────
+# Faculty / Staff Directory — Admin CRUD
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/contacts")
+async def admin_list_contacts(
+    search: Optional[str] = None,
+    department: Optional[str] = None,
+):
+    """Admin: list ALL contacts (unmasked) with optional filter."""
+    contacts = get_all_contacts_raw()
+
+    if department and department != 'all':
+        dept_lower = department.lower()
+        contacts = [c for c in contacts if dept_lower in c.get('department', '').lower()]
+
+    if search:
+        s = search.lower().strip()
+        contacts = [
+            c for c in contacts
+            if s in c.get('name', '').lower()
+            or s in c.get('department', '').lower()
+            or s in c.get('designation', '').lower()
+            or s in c.get('email', '').lower()
+            or s in c.get('mobile', '').lower()
+        ]
+
+    return {"total": len(contacts), "contacts": contacts}
+
+
+@router.post("/contacts")
+async def admin_add_contact(data: dict = Body(...)):
+    """Admin: add a new faculty/staff contact."""
+    if not data.get("name"):
+        raise HTTPException(status_code=400, detail="Contact name is required")
+    contact = add_contact(data)
+    return {"message": "Contact added successfully", "contact": contact}
+
+
+@router.put("/contacts/{contact_id}")
+async def admin_update_contact(contact_id: str, data: dict = Body(...)):
+    """Admin: update an existing contact by ID."""
+    updated = update_contact(contact_id, data)
+    if not updated:
+        raise HTTPException(status_code=404, detail=f"Contact '{contact_id}' not found")
+    return {"message": "Contact updated successfully", "contact": updated}
+
+
+@router.delete("/contacts/{contact_id}")
+async def admin_delete_contact(contact_id: str):
+    """Admin: delete a contact by ID."""
+    ok = delete_contact(contact_id)
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Contact '{contact_id}' not found")
+    return {"message": "Contact deleted successfully", "deleted_id": contact_id}
+
+
+@router.post("/contacts/reload")
+async def admin_reload_contacts():
+    """Admin: force re-parse the faculty PDF and rebuild the directory."""
+    count = init_faculty_index(force_reload=True)
+    return {"message": "Faculty directory reloaded from PDF", "total_records": count}
+

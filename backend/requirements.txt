@@ -10,7 +10,8 @@ faiss-cpu
 pymupdf
 langdetect
 aiosqlite
-sqlalchemy
+greenlet
+sqlalchemy[asyncio]
 pydantic
 faster-whisper
 edge-tts
